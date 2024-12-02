@@ -5,13 +5,7 @@ on: [push, pull_request, workflow_dispatch]
 jobs:
   build:
     name: "Build"
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-20.04]
-        include:
-          - os: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Build sourcemod plugin
@@ -27,19 +21,18 @@ jobs:
       - name: Upload build archive for test runners
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ runner.os }}
+          name: package
           path: /tmp/package
 
   tag:
     name: Tag
     needs: build
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
 
       - uses: dev-drprasad/delete-tag-and-release@v1.0.1
-        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
         with:
           delete_release: true
           tag_name: latest
@@ -47,7 +40,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: rickstaa/action-create-tag@v1
-        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
         with:
           tag: "latest"
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -60,6 +52,8 @@ jobs:
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
+        with:
+          name: package
 
       - name: Versioning
         run: |
@@ -72,8 +66,8 @@ jobs:
       - name: Package
         run: |
           ls -Rall
-          if [ -d "./Linux/" ]; then
-            cd ./Linux/
+          if [ -d "./package/" ]; then
+            cd ./package/
             tar -czf ../${{ github.event.repository.name }}-${{ env.RELEASE_VERSION }}.tar.gz -T <(\ls -1)
             cd -
           fi
